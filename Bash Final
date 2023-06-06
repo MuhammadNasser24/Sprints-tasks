@@ -1,0 +1,101 @@
+### Deploy & run a PERN (Postgres Express ReactJS NodeJS) based application using a bash script)
+
+
+
+#!/bin/bash
+
+# Function to install Node.js 14.x
+install_node() {
+  curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+}
+
+# Function to create IP configuration file
+create_ip_config() {
+  sudo echo "interface eth0" >> /etc/network/interfaces
+  sudo echo "static ip_address=<YOUR_STATIC_IP_ADDRESS>/24" >> /etc/network/interfaces
+  sudo systemctl restart networking
+}
+
+# Function to create Linux user 'node'
+create_node_user() {
+  sudo adduser --disabled-password --gecos "" node
+}
+
+# Function to retrieve IP address using regex and store it in a variable
+retrieve_ip_address() {
+  ip_address=$(ip addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+}
+
+# Function to deploy Postgres server instance
+deploy_postgres() {
+  # Follow the guide for installing/configuring Postgres server
+  # on Ubuntu, including creating user, database, etc.
+  # You can use a docker container if needed.
+  # Make sure to update the connection string parameters in the
+  # backend environment setup.
+  # Example commands:
+  # docker run --name postgres -e POSTGRES_PASSWORD=mysecretpassword -d postgres
+  # docker exec -it postgres psql -U postgres
+  # CREATE DATABASE pern_stack;
+  # CREATE USER pern_user WITH ENCRYPTED PASSWORD 'password';
+  # GRANT ALL PRIVILEGES ON DATABASE pern_stack TO pern_user;
+}
+
+# Function to run UI tests in a coprocess
+run_ui_tests() {
+  (cd ui && npm run test)
+}
+
+# Function to build UI
+build_ui() {
+  cd ui
+  npm install
+  npm run build
+}
+
+# Function to create backend environment
+create_backend_env() {
+  sed -i "s/process.env.HOST = 'localhost'/process.env.HOST = '$ip_address'/g" api/webpack.config.js
+  sed -i "s/process.env.DB_USER = 'postgres'/process.env.DB_USER = 'pern_user'/g" api/webpack.config.js
+  sed -i "s/process.env.DB_PASSWORD = 'password'/process.env.DB_PASSWORD = 'mysecretpassword'/g" api/webpack.config.js
+  sed -i "s/process.env.DB_NAME = 'pern'/process.env.DB_NAME = 'pern_stack'/g" api/webpack.config.js
+  ENVIRONMENT=demo npm run build
+}
+
+# Function to package and start the application
+start_application() {
+  cd pern-stack-example
+  cp -r api/dist/* .
+  cp api/swagger.css .
+  node api.bundle.js
+}
+
+# Main script
+
+# Install Node.js 14.x
+install_node
+
+# Create IP configuration file
+create_ip_config
+
+# Create Linux user 'node'
+create_node_user
+
+# Retrieve IP address
+retrieve_ip_address
+
+# Deploy Postgres server instance (manual step)
+deploy_postgres
+
+# Run UI tests in a coprocess
+run_ui_tests
+
+# Build UI
+build_ui
+
+# Create backend environment
+create_backend_env
+
+# Package and start the application
+start_application
